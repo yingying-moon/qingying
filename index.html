@@ -1,0 +1,84 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>轻盈</title><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png"><meta name="theme-color" content="#E8EFEA">
+<style>
+:root{--bg:#E8EFEA;--card:#fff;--ink:#16302B;--mut:#64786F;--ac:#2E7D5B;--warn:#C98A2B;--ln:#D3DED7}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "PingFang SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif}
+main{max-width:520px;margin:0 auto;padding:20px 16px 150px;padding-top:calc(20px + env(safe-area-inset-top))}
+h2{margin:0 0 14px;font-size:24px}h3{margin:0 0 12px}h4{margin:24px 0 8px;font-size:15px;color:var(--mut)}
+.hero{position:relative;width:236px;height:236px;margin:8px auto 0}.hero svg{width:100%;height:100%}
+.trk{fill:none;stroke:#fff;stroke-width:14}.arc{fill:none;stroke:var(--ac);stroke-width:14;stroke-linecap:round;transition:stroke-dasharray .5s}.arc.over{stroke:var(--warn)}
+.num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.num b{font-size:60px;line-height:1;font-weight:700;letter-spacing:-1px}.num span{color:var(--mut);font-size:14px;margin-top:6px}
+.sub{color:var(--mut);font-size:14px;text-align:center;margin:8px 0}.soft{background:#F7EBD6;border-radius:12px;padding:8px 12px;font-size:14px;text-align:center}
+.card{background:var(--card);border-radius:18px;padding:14px 16px;margin:10px 0}.ch{display:flex;justify-content:space-between;margin-bottom:4px}.ch span{color:var(--mut);font-size:14px}
+.li{display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid var(--ln);font-size:15px}.li a{margin-left:12px;color:var(--mut);cursor:pointer;padding:0 4px}
+.empty{color:var(--mut);font-size:14px;padding:6px 0}.rec{display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer}.rec small{display:block;color:var(--mut);font-size:13px}
+.btn{background:var(--ac);color:#fff;border-radius:10px;padding:6px 12px;font-size:14px;white-space:nowrap}
+button{font:inherit;border:1px solid var(--ln);background:#fff;color:var(--ink);border-radius:12px;padding:10px 14px;cursor:pointer}button.pri{background:var(--ac);color:#fff;border-color:var(--ac)}button.del{color:#B04A3A}
+.row{display:flex;gap:10px;margin:10px 0}.row>*{flex:1}
+label{display:block;font-size:13px;color:var(--mut);margin:10px 0}input,select,textarea{display:block;width:100%;margin-top:4px;font:inherit;font-size:16px;color:var(--ink);background:#F4F8F5;border:1px solid var(--ln);border-radius:10px;padding:9px 10px}
+.ck{display:flex;gap:8px;align-items:center;color:var(--ink);font-size:15px}.ck input{width:auto;margin:0}.ck span{margin-left:auto;color:var(--mut)}.big{font-size:26px;font-weight:700;margin:12px 0 0;text-align:center}.note{font-size:12px;color:var(--mut)}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:#fff;border-top:1px solid var(--ln);padding-bottom:env(safe-area-inset-bottom)}nav button{flex:1;border:0;border-radius:0;background:none;padding:14px 0;color:var(--mut)}nav button.on{color:var(--ac);font-weight:700}
+#fab{position:fixed;right:20px;bottom:calc(76px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;background:var(--ac);color:#fff;border:0;font-size:32px;align-items:center;justify-content:center;box-shadow:0 6px 16px #2e7d5b55}
+#sh{display:none;position:fixed;inset:0;z-index:9}#sh.open{display:block}.bg{position:absolute;inset:0;background:#16302B66}
+.pnl{position:absolute;left:0;right:0;bottom:0;max-height:88vh;overflow:auto;background:var(--bg);border-radius:22px 22px 0 0;padding:18px 16px calc(24px + env(safe-area-inset-bottom));max-width:520px;margin:0 auto}
+</style></head><body>
+<main id="app"></main><button id="fab" onclick="addSheet()" aria-label="记一餐">+</button>
+<nav><button data-t="today" onclick="go('today')">今天</button><button data-t="recipes" onclick="go('recipes')">菜谱</button><button data-t="set" onclick="go('set')">设置</button></nav>
+<div id="sh"></div>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const DEF={cap:1600,key:'',model:'claude-sonnet-5-5',recipes:[],logs:[]},MEALS=['早餐','午餐','晚餐','加餐'];
+let S={...DEF,...JSON.parse(localStorage.getItem('qy')||'{}')},tab='today',PRE=null,G=null;
+const save=()=>localStorage.setItem('qy',JSON.stringify(S));
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const mid=r=>Math.round((r.min+r.max)/2),curMeal=()=>{const h=new Date().getHours();return h<10?0:h<15?1:h<21?2:3};
+const eaten=()=>S.logs.filter(l=>l.date==today()).reduce((a,l)=>a+l.kcal,0);
+const P1='这是一张菜谱截图。提取内容并只返回JSON，不要其他文字：{"name":"菜名","ingredients":[{"n":"食材","g":克数或null}],"steps":["步骤"],"kcalMin":每份最低热量,"kcalMax":每份最高热量,"sat":"耐饱|一般|不耐饱"}。截图里没有的用量不要编造，g填null；热量按常见做法估算并给出合理范围。';
+const P2='这是团购套餐或美食图片。识别其中每一项食物及份量，估算热量，只返回JSON：{"name":"套餐名","items":[{"n":"食物","min":最低kcal,"max":最高kcal}]}。热量给合理范围。';
+function go(t){tab=t||tab;render()}
+function render(){document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t==tab));$('#fab').style.display=tab=='today'?'flex':'none';$('#app').innerHTML=tab=='today'?vToday():tab=='recipes'?vRecipes():vSet()}
+function vToday(){const e=eaten(),rem=S.cap-e,p=Math.min(1,e/S.cap),L=2*Math.PI*84;
+const recs=S.recipes.filter(r=>mid(r)<=rem).sort((a,b)=>(a.sat=='耐饱'?0:1)-(b.sat=='耐饱'?0:1)||mid(b)-mid(a)).slice(0,3);
+return `<section class="hero"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="84" class="trk"/><circle cx="100" cy="100" r="84" class="arc ${rem<0?'over':''}" stroke-dasharray="${L*p} ${L}" transform="rotate(-90 100 100)"/></svg><div class="num"><b>${Math.abs(rem)}</b><span>${rem>=0?'今天还剩 kcal':'今天超出 kcal'}</span></div></section>
+<p class="sub">已吃 ${e} / 上限 ${S.cap} kcal</p>${rem<0?'<p class="soft">多吃了一点没关系，明天轻松调整就好。</p>':''}
+${MEALS.map((m,i)=>{const ls=S.logs.filter(l=>l.date==today()&&l.meal==i);return `<div class="card"><div class="ch"><b>${m}</b><span>${ls.reduce((a,l)=>a+l.kcal,0)} kcal</span></div>${ls.map(l=>`<div class="li"><span>${esc(l.name)}</span><span>${l.kcal}<a onclick="rmLog(${l.id})">×</a></span></div>`).join('')||'<div class="empty">还没记录</div>'}</div>`}).join('')}
+<h4>今日推荐</h4>${recs.length?recs.map(r=>`<div class="card rec" onclick="logR(${r.id})"><div><b>${esc(r.name)}</b><small>${r.sat} · ${r.min}–${r.max} kcal</small></div><span class="btn">吃这个</span></div>`).join(''):`<div class="empty">${S.recipes.length?'剩余额度不够吃已存菜谱了，水果或清淡的小点心就好。':'先在「菜谱」里上传一张截图，这里就会开始推荐。'}</div>`}`}
+function vRecipes(){return `<h2>菜谱</h2><div class="row"><button class="pri" onclick="shot('recipe')">截图识别</button><button onclick="editR()">手动添加</button></div>${S.recipes.map(r=>`<div class="card rec" onclick="editR(${r.id})"><div><b>${esc(r.name)}</b><small>${r.sat} · ${r.src} · ${r.ing.length} 种食材</small></div><span>${r.min}–${r.max}</span></div>`).join('')||'<div class="empty">菜谱库是空的。上传一张小红书或网页的菜谱截图试试。</div>'}`}
+function vSet(){return `<h2>设置</h2><div class="card"><label>每日热量上限 (kcal)<input id="s1" type="number" value="${S.cap}"></label><label>Anthropic API Key（只保存在本机）<input id="s2" type="password" value="${esc(S.key)}" placeholder="sk-ant-..."></label><label>识图模型<input id="s3" value="${esc(S.model)}"></label><button class="pri" onclick="saveSet()">保存设置</button></div><p class="note">热量为估算值，仅供饮食记录参考；有特殊健康状况请咨询专业人士。</p>`}
+function saveSet(){const c=+$('#s1').value;if(c<1200&&!confirm('每日 '+c+' kcal 低于 1200，长期过低摄入可能影响健康。仍要保存吗？'))return;S.cap=c||1600;S.key=$('#s2').value.trim();S.model=$('#s3').value.trim()||DEF.model;save();render();alert('已保存')}
+function sheet(h){$('#sh').innerHTML=`<div class="bg" onclick="closeS()"></div><div class="pnl">${h}</div>`;$('#sh').classList.add('open')}
+function closeS(){$('#sh').classList.remove('open');$('#sh').innerHTML=''}
+const uid=()=>Date.now()*10+Math.floor(Math.random()*10);
+function add(m,name,k){S.logs.push({id:uid(),date:today(),meal:m,name,kcal:Math.round(k)});save();closeS();render()}
+function rmLog(id){S.logs=S.logs.filter(l=>l.id!=id);save();render()}
+function logR(id){const r=S.recipes.find(x=>x.id==id),m=$('#am')?+$('#am').value:curMeal();add(m,r.name,mid(r))}
+function addSheet(){sheet(`<h3>记一餐</h3><label>餐次<select id="am">${MEALS.map((m,i)=>`<option value="${i}" ${i==curMeal()?'selected':''}>${m}</option>`).join('')}</select></label>
+${S.recipes.slice(0,6).map(r=>`<div class="card rec" onclick="logR(${r.id})"><div><b>${esc(r.name)}</b></div><span>${mid(r)} kcal</span></div>`).join('')}
+<div class="row"><label>自定义食物<input id="cn" placeholder="名称"></label><label>热量<input id="ck" type="number" placeholder="kcal"></label></div>
+<div class="row"><button class="pri" onclick="add(+$('#am').value,$('#cn').value||'自定义',+$('#ck').value||0)">记录</button><button onclick="shot('groupon')">团购识别</button></div>`)}
+function parseIng(t){return t.split('\n').map(s=>s.trim()).filter(Boolean).map(l=>{const m=l.match(/^(.+?)\s+(\d+(?:\.\d+)?)\s*g?$/i);return m?{n:m[1],g:+m[2]}:{n:l,g:null}})}
+function editR(id,pre){const r=S.recipes.find(x=>x.id==id)||pre||{name:'',min:300,max:400,sat:'一般',ing:[],steps:[],src:'手动'};PRE=pre||null;
+sheet(`<h3>${pre?'确认识别结果':r.id?'编辑菜谱':'新菜谱'}</h3><label>菜名<input id="e1" value="${esc(r.name)}"></label>
+<div class="row"><label>热量下限<input id="e2" type="number" value="${r.min}"></label><label>热量上限<input id="e3" type="number" value="${r.max}"></label></div>
+<label>耐饱度<select id="e4">${['耐饱','一般','不耐饱'].map(s=>`<option ${s==r.sat?'selected':''}>${s}</option>`).join('')}</select></label>
+<label>食材（每行：名称 克数）<textarea id="e5" rows="4">${esc(r.ing.map(i=>i.n+(i.g?' '+i.g+'g':'')).join('\n'))}</textarea></label>
+<label>步骤（每行一步）<textarea id="e6" rows="4">${esc(r.steps.join('\n'))}</textarea></label>
+<div class="row"><button class="pri" onclick="saveR(${r.id||0})">保存</button>${r.id?`<button onclick="logR(${r.id})">记一餐</button><button class="del" onclick="delR(${r.id})">删除</button>`:''}</div>`)}
+function saveR(id){const min=+$('#e2').value||0,old=S.recipes.find(x=>x.id==id),o={id:id||uid(),name:$('#e1').value.trim()||'未命名',min,max:Math.max(min,+$('#e3').value||0),sat:$('#e4').value,ing:parseIng($('#e5').value),steps:$('#e6').value.split('\n').map(s=>s.trim()).filter(Boolean),src:old?old.src:(PRE&&PRE.src)||'手动'};
+if(old)S.recipes=S.recipes.map(x=>x.id==id?o:x);else S.recipes.unshift(o);save();closeS();go('recipes')}
+function delR(id){if(confirm('删除这个菜谱？')){S.recipes=S.recipes.filter(x=>x.id!=id);save();closeS();render()}}
+function shrink(f){return new Promise((res,rej)=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1400/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.82).split(',')[1])};im.onerror=()=>rej(new Error('图片读取失败'));im.src=URL.createObjectURL(f)})}
+async function ai(f,prompt){if(!S.key)throw new Error('请先在「设置」里填写 API Key');const data=await shrink(f);
+const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':S.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:S.model,max_tokens:1500,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/jpeg',data}},{type:'text',text:prompt}]}]})});
+const j=await r.json();if(!r.ok)throw new Error(j.error?.message||'识别失败');const t=j.content.filter(c=>c.type=='text').map(c=>c.text).join(''),m=t.match(/\{[\s\S]*\}/);if(!m)throw new Error('没能读懂返回内容，请换一张更清晰的图重试');return JSON.parse(m[0])}
+function shot(mode){const i=document.createElement('input');i.type='file';i.accept='image/*';i.onchange=async()=>{const f=i.files[0];if(!f)return;sheet('<h3>识别中…</h3><p class="sub">通常需要 5–15 秒</p>');
+try{if(mode=='recipe'){const d=await ai(f,P1);editR(0,{name:d.name||'',min:d.kcalMin||0,max:d.kcalMax||0,sat:d.sat||'一般',ing:(d.ingredients||[]).map(x=>({n:x.n,g:x.g})),steps:d.steps||[],src:'截图'})}else{const d=await ai(f,P2);G={name:d.name||'团购套餐',items:(d.items||[]).map(x=>({n:x.n,min:x.min||0,max:x.max||x.min||0,on:true}))};gView()}}
+catch(e){sheet(`<h3>没识别成功</h3><p class="sub">${esc(e.message)}</p><button onclick="closeS()">关闭</button>`)}};i.click()}
+const gT=()=>Math.round(G.items.filter(x=>x.on).reduce((a,x)=>a+(x.min+x.max)/2,0));
+function gView(){const t=gT(),rem=S.cap-eaten(),n=[0,1,2].filter(m=>m!=curMeal()&&!S.logs.some(l=>l.date==today()&&l.meal==m)).length,left=rem-t;
+sheet(`<h3>${esc(G.name)}</h3>${G.items.map((x,i)=>`<label class="ck"><input type="checkbox" ${x.on?'checked':''} onchange="G.items[${i}].on=this.checked;gView()">${esc(x.n)}<span>${x.min}–${x.max}</span></label>`).join('')}
+<p class="big">约 ${t} kcal</p><p class="sub">${left>=0?`吃完今天还剩 ${left} kcal${n?`，其余 ${n} 餐平均每餐约 ${Math.floor(left/n)} kcal。`:'。'}`:`比今天剩余额度多 ${-left} kcal。试试取消勾选热量最高的一两样，或只吃一半。`}</p>
+<div class="row"><button class="pri" onclick="add(curMeal(),G.name,gT())">记录所选</button><button onclick="saveG()">存为菜谱</button></div>`)}
+function saveG(){const on=G.items.filter(x=>x.on);S.recipes.unshift({id:uid(),name:G.name,min:on.reduce((a,x)=>a+x.min,0),max:on.reduce((a,x)=>a+x.max,0),sat:'一般',ing:on.map(x=>({n:x.n,g:null})),steps:[],src:'团购'});save();closeS();go('recipes')}
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
+render();
+</script></body></html>
